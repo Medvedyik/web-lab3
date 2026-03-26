@@ -1,30 +1,27 @@
 <?php
-// Устанавливаем кодировку
 header('Content-Type: text/html; charset=UTF-8');
+session_start();
 
 // Параметры подключения к БД
 $user = 'u82258';
 $pass = '7574471';
 $dbname = 'u82258';
 
-// Список допустимых языков (для валидации)
+// Список допустимых языков
 $allowedLanguages = [
     'Pascal', 'C', 'C++', 'JavaScript', 'PHP', 'Python',
     'Java', 'Haskel', 'Clojure', 'Prolog', 'Scala', 'Go'
 ];
 
-// Функция для безопасного вывода данных в HTML
 function h($str) {
     return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
 }
 
-// Массивы для хранения ошибок и старых данных
 $errors = [];
 $old = [];
 
-// Обработка POST-запроса (когда форму отправили)
+// Обработка POST-запроса
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Получаем данные
     $fio = trim($_POST['fio'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -34,12 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $biography = trim($_POST['biography'] ?? '');
     $contract = isset($_POST['contract']) ? 1 : 0;
 
-    // Сохраняем введённые данные для повторного показа формы
     $old = compact('fio', 'phone', 'email', 'birth_date', 'gender', 'languages', 'biography', 'contract');
 
-    // --- Валидация ---
-
-    // 1. ФИО
+    // Валидация
     if (empty($fio)) {
         $errors['fio'] = 'Заполните ФИО.';
     } elseif (strlen($fio) > 150) {
@@ -48,21 +42,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['fio'] = 'ФИО должно содержать только буквы, пробелы и дефисы.';
     }
 
-    // 2. Телефон
     if (empty($phone)) {
         $errors['phone'] = 'Заполните телефон.';
     } elseif (!preg_match('/^[\d\s\(\)\+\-]+$/', $phone)) {
         $errors['phone'] = 'Телефон содержит недопустимые символы.';
     }
 
-    // 3. Email
     if (empty($email)) {
         $errors['email'] = 'Заполните e-mail.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors['email'] = 'Некорректный e-mail.';
     }
 
-    // 4. Дата рождения
     if (empty($birth_date)) {
         $errors['birth_date'] = 'Укажите дату рождения.';
     } else {
@@ -77,12 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 5. Пол
     if (!in_array($gender, ['male', 'female'])) {
         $errors['gender'] = 'Выберите пол.';
     }
 
-    // 6. Языки программирования
     if (empty($languages)) {
         $errors['languages'] = 'Выберите хотя бы один язык программирования.';
     } else {
@@ -94,27 +83,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 7. Биография: не более 500 символов (можно и без проверки)
     if (strlen($biography) > 500) {
         $errors['biography'] = 'Биография не должна превышать 500 символов.';
     }
 
-    // 8. Согласие с контрактом
     if (!$contract) {
         $errors['contract'] = 'Необходимо ознакомиться с контрактом.';
     }
 
-    // Если ошибок нет – сохраняем в БД
+    // Сохранение при отсутствии ошибок
     if (empty($errors)) {
         try {
-            // Подключение к БД
             $pdo = new PDO("mysql:host=localhost;dbname=$dbname;charset=utf8", $user, $pass);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            // Начинаем транзакцию
             $pdo->beginTransaction();
 
-            // 1. Вставляем данные в таблицу applications
             $stmt = $pdo->prepare("
                 INSERT INTO applications (fio, phone, email, birth_date, gender, biography, contract_accepted)
                 VALUES (:fio, :phone, :email, :birth_date, :gender, :biography, :contract)
@@ -130,7 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $applicationId = $pdo->lastInsertId();
 
-            // 2. Вставляем связи с языками
             $stmtLang = $pdo->prepare("
                 INSERT INTO application_languages (application_id, language_id)
                 VALUES (:app_id, (SELECT id FROM programming_languages WHERE name = :lang_name))
@@ -142,25 +125,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
-            // Фиксируем транзакцию
             $pdo->commit();
 
-            // Перенаправляем на ту же страницу с параметром save=1
-            header('Location: ?save=1');
+            $_SESSION['success'] = 'Данные успешно сохранены!';
+            header('Location: ' . $_SERVER['SCRIPT_NAME']);
             exit;
-
         } catch (PDOException $e) {
-            // Если ошибка, откатываем транзакцию
             $pdo->rollBack();
             $errors['db'] = 'Ошибка базы данных: ' . $e->getMessage();
         }
     }
 }
 
-// Если запрос GET и есть параметр save, показываем сообщение об успехе
+// Сообщение об успехе из сессии
 $successMessage = '';
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['save'])) {
-    $successMessage = 'Данные успешно сохранены!';
+if (isset($_SESSION['success'])) {
+    $successMessage = $_SESSION['success'];
+    unset($_SESSION['success']);
 }
 ?>
 <!DOCTYPE html>
