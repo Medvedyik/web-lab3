@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 1. ФИО
     if (empty($fio)) {
         $errors['fio'] = 'Заполните ФИО.';
-    } elseif (mb_strlen($fio) > 150) {
+    } elseif (strlen($fio) > 150) {
         $errors['fio'] = 'ФИО не должно превышать 150 символов.';
     } elseif (!preg_match('/^[a-zA-Zа-яА-ЯёЁ\s\-]+$/u', $fio)) {
         $errors['fio'] = 'ФИО должно содержать только буквы, пробелы и дефисы.';
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // 7. Биография: не более 500 символов (можно и без проверки)
-    if (mb_strlen($biography) > 500) {
+    if (strlen($biography) > 500) {
         $errors['biography'] = 'Биография не должна превышать 500 символов.';
     }
 
